@@ -1,24 +1,34 @@
+# ---------------------------------------------------------------------------
+# Runtime dependencies. Pinned to floors; the lock is generated with
+# `pip-compile requirements.in` in the dependency-management milestone.
+# ---------------------------------------------------------------------------
+
 # Web framework
-fastapi>=0.111.0
-uvicorn[standard]>=0.29.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
 python-multipart>=0.0.9
 
-# LangChain
-langchain>=0.2.0
-langchain-community>=0.2.0
-langchain-groq>=0.1.3
+# Settings and validation
+pydantic>=2.9.0
+pydantic-settings>=2.5.0
 
-# Vector store
-chromadb>=0.5.0
+# Observability
+structlog>=24.4.0
+
+# LangChain
+langchain>=1.0.0
+langchain-core>=1.0.0
+langchain-community>=0.4.0
+langchain-groq>=1.0.0
+langchain-huggingface>=0.3.0
+langchain-text-splitters>=1.0.0
+
+# Vector store (local development default)
+chromadb>=1.0.0
+langchain-chroma>=0.2.0
 
 # Embeddings
-huggingface-hub>=0.23.0
 sentence-transformers>=3.0.0
-accelerate
 
-# PDF loading
-pypdf>=4.2.0
-
-# Utilities
-python-dotenv>=1.0.0
-pydantic>=2.7.0
+# PDF parsing
+pypdf>=5.0.0

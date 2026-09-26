@@ -744,7 +744,7 @@ kbd {
         <input type="file" id="file-input" accept=".pdf"/>
         <span id="drop-icon">⬡</span>
         <div id="drop-title">Drop PDF here</div>
-        <div id="drop-sub">or click · PDF only · max 100 MB</div>
+        <div id="drop-sub">or click · PDF only · max 25 MB</div>
         <div id="progress-wrap">
           <div id="progress-label">
             <span id="prog-text">Indexing…</span>
@@ -830,9 +830,23 @@ kbd {
 /* ═══════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════ */
-let ready    = false;   // PDF loaded and chain set up
-let busy     = false;   // waiting for /ask response
+const API = '/api/v1';   // versioned API root; keep in step with Settings.api_prefix
+
+let ready    = false;   // PDF loaded and indexed
+let busy     = false;   // waiting for /chat response
 let turns    = 0;
+let docId    = null;    // id of the indexed document
+let convId   = null;    // conversation id, so follow-ups keep their history
+
+/* Reads the error envelope the API returns, falling back to the raw body. */
+async function apiError(res) {
+  try {
+    const body = await res.json();
+    return body?.error?.message || body?.detail || ('Request failed (' + res.status + ')');
+  } catch {
+    return 'Request failed (' + res.status + ')';
+  }
+}
 
 /* ═══════════════════════════════════════════════════
    UPLOAD
@@ -885,13 +899,14 @@ async function handleFile(file) {
 
   try {
     setProgress(30, 'Extracting text…');
-    const res  = await fetch('/upload', { method: 'POST', body: form });
+    const res  = await fetch(API + '/documents', { method: 'POST', body: form });
     setProgress(70, 'Building index…');
+
+    if (!res.ok) throw new Error(await apiError(res));
     const data = await res.json();
 
-    if (!res.ok) throw new Error(data.detail || 'Upload failed');
-
     setProgress(100, 'Done');
+    docId = data.document_id;
 
     // Animate stats
     countUp('v-pages',  data.pages);
@@ -996,23 +1011,26 @@ async function send() {
   const thinkEl = appendThinking();
 
   try {
-    const res  = await fetch('/ask', {
+    const res  = await fetch(API + '/chat', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ question }),
+      body:    JSON.stringify({ question, document_id: docId, conversation_id: convId }),
     });
-    const data = await res.json();
 
     thinkEl.remove();
     appendDivider();
 
-    if (data.error) {
-      appendAI('⚠ ' + data.answer, [], null);
-    } else {
-      turns++;
-      document.getElementById('v-turns').textContent = turns;
-      appendAI(data.answer, data.sources || [], data.latency_s);
+    if (!res.ok) {
+      appendAI('⚠ ' + (await apiError(res)), [], null);
+      return;
     }
+
+    const data = await res.json();
+    convId = data.conversation_id;
+
+    turns++;
+    document.getElementById('v-turns').textContent = turns;
+    appendAI(data.answer, data.citations || [], data.latency_s);
 
   } catch (err) {
     thinkEl.remove();
@@ -1085,7 +1103,7 @@ function appendAI(text, sources, latency) {
             onmouseleave="hideTip()"
             onmousemove="moveTip(event)">
          <div class="src-dot"></div>
-         p.${Number(s.page) + 1} — ${escHtml(s.source)}
+         p.${Number(s.page)} — ${escHtml(s.source)}
        </div>`
     ).join('');
     srcHtml = `<div class="sources-row">${chips}</div>`;
@@ -1148,11 +1166,21 @@ function posTip(e) {
 async function doReset() {
   if (!confirm('Clear the current session and document?')) return;
 
-  await fetch('/reset', { method: 'POST' }).catch(() => {});
+  // Delete the indexed document (and its embeddings) and drop the conversation.
+  if (docId) {
+    await fetch(API + '/documents/' + encodeURIComponent(docId), { method: 'DELETE' })
+      .catch(() => {});
+  }
+  if (convId) {
+    await fetch(API + '/chat/reset?conversation_id=' + encodeURIComponent(convId),
+                { method: 'POST' }).catch(() => {});
+  }
 
   ready = false;
   busy  = false;
   turns = 0;
+  docId = null;
+  convId = null;
 
   // Clear chat
   chat.innerHTML = '';
@@ -1166,7 +1194,7 @@ async function doReset() {
 
   // Reset panel
   document.getElementById('drop-title').textContent = 'Drop PDF here';
-  document.getElementById('drop-sub').textContent   = 'or click · PDF only · max 100 MB';
+  document.getElementById('drop-sub').textContent   = 'or click · PDF only · max 25 MB';
 
   // Reset pills
   const pill = document.getElementById('doc-pill');
