@@ -28,7 +28,7 @@ tells you which page a claim came from.
 | Configuration    | pydantic-settings, `.env`                                          |
 | RAG orchestration | Custom pipeline (LangChain splitters + provider clients)          |
 | Embeddings       | HuggingFace `all-MiniLM-L6-v2`, 384-dim, CPU                      |
-| Vector store     | ChromaDB (HNSW, local disk) — pgvector in progress                |
+| Vector store     | ChromaDB (HNSW, local disk); pgvector planned                    |
 | LLM              | Groq `qwen/qwen3.8-27b`                                           |
 | PDF loading      | `pypdf`                                                           |
 | Observability    | structlog, JSON in production                                      |
@@ -139,7 +139,7 @@ defaults. The values you are most likely to change:
 | `TOP_K`                | `5`                | Passages retrieved per question.                      |
 | `MAX_UPLOAD_BYTES`     | `26214400`         | 25 MB.                                                |
 | `LOG_FORMAT`           | `console`          | `json` in production.                                 |
-| `VECTOR_STORE_BACKEND` | `chroma`           | `pgvector` once Postgres lands.                       |
+| `VECTOR_STORE_BACKEND` | `chroma`           | `chroma` is the only working backend; `pgvector` is validated but **not implemented yet**. |
 
 ## Architecture
 
@@ -161,8 +161,9 @@ lets the pipeline be tested directly with fakes and lets the vector store, LLM,
 and embedder be swapped without touching the layers above.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the request lifecycle, the
-reasoning behind each seam, and the data model. Planned work is tracked in
-[docs/ROADMAP.md](docs/ROADMAP.md).
+reasoning behind each seam, and the data model. A diagram of the layout and
+dependency direction is in [docs/STRUCTURE.md](docs/STRUCTURE.md). Planned work
+is tracked in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Development
 
